@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function VistaRepartidor({ pedido, id }) {
   const [estado, setEstado] = useState("pendiente");
@@ -20,10 +21,49 @@ export default function VistaRepartidor({ pedido, id }) {
   };
 
   const iniciarRecorrido = () => {
+    if (!navigator.geolocation) {
+      alert("Tu navegador no soporta geolocalización");
+      return;
+    }
+
+    // Crear pedido en Supabase
+    supabase.from("pedidos").upsert({
+      pedido_id: id,
+      cliente: pedido.cliente,
+      direccion: pedido.direccionCliente,
+      telefono_cliente: pedido.telefono,
+      productos: pedido.productos,
+      total: pedido.total,
+      estado: "en_camino",
+      repartidor_nombre: pedido.repartidor.nombre,
+      repartidor_telefono: pedido.repartidor.telefono,
+      lat_sucursal: pedido.sucursal.lat,
+      lng_sucursal: pedido.sucursal.lng,
+      lat_destino: pedido.destino.lat,
+      lng_destino: pedido.destino.lng,
+      lat_actual: pedido.sucursal.lat,
+      lng_actual: pedido.sucursal.lng,
+    }, { onConflict: "pedido_id" });
+
     setEstado("iniciado");
+
+    // Mandar GPS cada 5 segundos
+    navigator.geolocation.watchPosition(
+      async (pos) => {
+        await supabase.from("pedidos").update({
+          lat_actual: pos.coords.latitude,
+          lng_actual: pos.coords.longitude,
+        }).eq("pedido_id", id);
+      },
+      (err) => console.log("GPS error:", err),
+      { enableHighAccuracy: true }
+    );
   };
 
-  const marcarEntregado = () => setEstado("entregado");
+  const marcarEntregado = async () => {
+    await supabase.from("pedidos").update({ estado: "entregado" }).eq("pedido_id", id);
+    setEstado("entregado");
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
@@ -33,13 +73,13 @@ export default function VistaRepartidor({ pedido, id }) {
       </div>
 
       <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 mb-4">
-        <p className="text-orange-400 font-semibold text-sm mb-3">DIRECCION</p>
+        <p className="text-orange-400 font-semibold text-sm uppercase mb-3">Direccion de entrega</p>
         <p className="text-lg font-bold mb-1">{pedido.cliente}</p>
         <p className="text-gray-300">{pedido.direccionCliente}</p>
       </div>
 
       <div className="w-full max-w-md bg-gray-800 rounded-2xl p-5 mb-4">
-        <p className="text-orange-400 font-semibold text-sm mb-3">PRODUCTOS</p>
+        <p className="text-orange-400 font-semibold text-sm uppercase mb-3">Productos</p>
         <ul>
           {pedido.productos.map((p, i) => (
             <li key={i} className="text-gray-300 text-sm">- {p}</li>
