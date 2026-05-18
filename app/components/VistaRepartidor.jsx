@@ -26,7 +26,7 @@ export default function VistaRepartidor({ pedido, id }) {
       return;
     }
 
-    supabase.from("pedidos").upsert({
+    const { error } = await supabase.from("pedidos").upsert({
       pedido_id: id,
       cliente: pedido.cliente,
       direccion: pedido.direccionCliente,
@@ -43,6 +43,11 @@ export default function VistaRepartidor({ pedido, id }) {
       lat_actual: pedido.sucursal.lat,
       lng_actual: pedido.sucursal.lng,
     }, { onConflict: "pedido_id" });
+
+    if (error) {
+      alert("Error Supabase: " + error.message);
+      return;
+    }
 
     setEstado("iniciado");
 
