@@ -20,13 +20,12 @@ export default function VistaRepartidor({ pedido, id }) {
     return `${m}:${s}`;
   };
 
-  const iniciarRecorrido = () => {
+  const iniciarRecorrido = async () => {
     if (!navigator.geolocation) {
       alert("Tu navegador no soporta geolocalización");
       return;
     }
 
-    // Crear pedido en Supabase
     supabase.from("pedidos").upsert({
       pedido_id: id,
       cliente: pedido.cliente,
@@ -47,7 +46,14 @@ export default function VistaRepartidor({ pedido, id }) {
 
     setEstado("iniciado");
 
-    // Mandar GPS cada 5 segundos
+    if ('wakeLock' in navigator) {
+      try {
+        await navigator.wakeLock.request('screen');
+      } catch (err) {
+        console.log('Wake lock error:', err);
+      }
+    }
+
     navigator.geolocation.watchPosition(
       async (pos) => {
         await supabase.from("pedidos").update({
