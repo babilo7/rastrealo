@@ -2,6 +2,26 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
+const WA_TOKEN = "EAARc3iPFEecBQ1BZCw5L5fyZAMzizGuvmRkIGLkenZBfClfWWEhutZAIv31T8RtDTktri0ZCKuawbOJcDJrvXAxCZB86lAZAEX7A24J83oZBwOpVZCNKdW2dkZAj890AfhToM0Ek7tJZCDDrx1yiRXLSqhwKQzDhCPR01SrZBW2e4WyS163Jk1qpf2HJhC7cZC8Occl5E2rmCjrFX4CR59nmwZCP4nAiXm4iETbZBzHHGIapwLh";
+const WA_PHONE_ID = "1062390730283477";
+const DUENO_TEL = "529931776316";
+
+async function enviarWhatsApp(telefono, mensaje) {
+  await fetch(`https://graph.facebook.com/v25.0/${WA_PHONE_ID}/messages`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${WA_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: telefono,
+      type: "text",
+      text: { body: mensaje },
+    }),
+  });
+}
+
 export default function VistaRepartidor({ pedido, id }) {
   const [estado, setEstado] = useState("pendiente");
   const [tiempo, setTiempo] = useState(0);
@@ -70,32 +90,25 @@ export default function VistaRepartidor({ pedido, id }) {
       }
     }
 
-    // ✅ Registrar Service Worker
     if ('serviceWorker' in navigator) {
       try {
         const reg = await navigator.serviceWorker.register('/sw.js');
         await navigator.serviceWorker.ready;
-
         reg.active?.postMessage({
           type: 'START_GPS',
           pedidoId: id,
           supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
           supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         });
-
-        console.log('Service Worker registrado');
       } catch (err) {
         console.log('SW error:', err);
       }
     }
 
-    // ✅ watchPosition manda coords al Service Worker
     navigator.geolocation.watchPosition(
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-
-        // Intentar via Service Worker primero
         if (navigator.serviceWorker.controller) {
           navigator.serviceWorker.controller.postMessage({
             type: 'UPDATE_LOCATION',
@@ -106,7 +119,6 @@ export default function VistaRepartidor({ pedido, id }) {
             supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
           });
         } else {
-          // Fallback directo si SW no está listo
           await supabase.from("pedidos").update({
             lat_actual: lat,
             lng_actual: lng,
@@ -119,15 +131,11 @@ export default function VistaRepartidor({ pedido, id }) {
   };
 
   const marcarEntregado = async () => {
-    console.log("Intentando marcar como entregado — pedido_id:", id);
-
     const { data, error } = await supabase
       .from("pedidos")
       .update({ estado: "entregado" })
       .eq("pedido_id", id)
       .select();
-
-    console.log("UPDATE result:", data, "ERROR:", error);
 
     if (error) {
       alert("Error al actualizar: " + error.message);
@@ -139,7 +147,21 @@ export default function VistaRepartidor({ pedido, id }) {
       return;
     }
 
-    console.log("Estado actualizado a entregado correctamente");
+    // ✅ Notificación al cliente
+    const telefonoCliente = pedido.telefono?.replace(/\D/g, "");
+    if (telefonoCliente) {
+      await enviarWhatsApp(
+        telefonoCliente,
+        `¡Tu pedido fue entregado! Gracias por tu compra 🎉 — Barbacoa Monroy`
+      );
+    }
+
+    // ✅ Notificación al dueño
+    await enviarWhatsApp(
+      DUENO_TEL,
+      `✅ Pedido #${id} entregado por ${repartidor.nombre} a ${pedido.cliente}`
+    );
+
     setEstado("entregado");
   };
 
