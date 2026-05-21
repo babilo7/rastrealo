@@ -9,6 +9,7 @@ export default function MapaCliente({ pedido }) {
   const [llegando, setLlegando] = useState(false);
   const [entregado, setEntregado] = useState(false);
 
+  // ✅ Mapa — useEffect separado
   useEffect(() => {
     if (typeof window === "undefined" || mapInstanceRef.current) return;
 
@@ -57,34 +58,6 @@ export default function MapaCliente({ pedido }) {
 
       mapInstanceRef.current = map;
       markerRef.current = motoMarker;
-
-      // Escuchar cambios en tiempo real de Supabase
-      const channel = supabase
-        .channel("pedido-" + pedido.id)
-        .on("postgres_changes", {
-          event: "UPDATE",
-          schema: "public",
-          table: "pedidos",
-          filter: "pedido_id=eq." + pedido.id,
-        }, (payload) => {
-          const { lat_actual, lng_actual, estado } = payload.new;
-
-          if (lat_actual && lng_actual) {
-            motoMarker.setLatLng([lat_actual, lng_actual]);
-            map.panTo([lat_actual, lng_actual], { animate: true });
-
-            const dist = Math.sqrt(
-              Math.pow(lat_actual - pedido.destino.lat, 2) +
-              Math.pow(lng_actual - pedido.destino.lng, 2)
-            );
-            if (dist < 0.003) setLlegando(true);
-          }
-
-          if (estado === "entregado") setEntregado(true);
-        })
-        .subscribe();
-
-      return () => supabase.removeChannel(channel);
     });
 
     return () => {
@@ -95,6 +68,51 @@ export default function MapaCliente({ pedido }) {
     };
   }, []);
 
+  // ✅ Realtime — useEffect completamente separado del mapa
+  useEffect(() => {
+    console.log("🔌 Suscribiendo canal Realtime para pedido:", pedido.id);
+
+    const channel = supabase
+      .channel("pedido-" + pedido.id)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "pedidos",
+          filter: "pedido_id=eq." + pedido.id,
+        },
+        (payload) => {
+          console.log("📡 Realtime payload recibido:", payload);
+          const { lat_actual, lng_actual, estado } = payload.new;
+
+          if (lat_actual && lng_actual && markerRef.current && mapInstanceRef.current) {
+            markerRef.current.setLatLng([lat_actual, lng_actual]);
+            mapInstanceRef.current.panTo([lat_actual, lng_actual], { animate: true });
+
+            const dist = Math.sqrt(
+              Math.pow(lat_actual - pedido.destino.lat, 2) +
+              Math.pow(lng_actual - pedido.destino.lng, 2)
+            );
+            if (dist < 0.003) setLlegando(true);
+          }
+
+          if (estado === "entregado") {
+            console.log("✅ Estado entregado detectado en cliente");
+            setEntregado(true);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log("📶 Canal status:", status);
+      });
+
+    return () => {
+      console.log("🔌 Removiendo canal Realtime");
+      supabase.removeChannel(channel);
+    };
+  }, [pedido.id]);
+
   return (
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full rounded-2xl z-0" />
@@ -104,10 +122,4 @@ export default function MapaCliente({ pedido }) {
         </div>
       )}
       {entregado && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-green-500 text-white font-bold px-6 py-3 rounded-2xl shadow-xl text-center">
-          ✅ Pedido entregado!
-        </div>
-      )}
-    </div>
-  );
-}
+        <div className="absolute top-4 left-1/2

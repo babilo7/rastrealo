@@ -82,8 +82,29 @@ export default function VistaRepartidor({ pedido, id }) {
     );
   };
 
+  // ✅ MODIFICADO — logs de diagnóstico
   const marcarEntregado = async () => {
-    await supabase.from("pedidos").update({ estado: "entregado" }).eq("pedido_id", id);
+    console.log("🟡 Intentando marcar como entregado — pedido_id:", id);
+
+    const { data, error } = await supabase
+      .from("pedidos")
+      .update({ estado: "entregado" })
+      .eq("pedido_id", id)
+      .select();
+
+    console.log("UPDATE result:", data, "ERROR:", error);
+
+    if (error) {
+      alert("Error al actualizar: " + error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      alert("⚠️ UPDATE llegó a Supabase pero no devolvió filas — posible problema de RLS o pedido_id incorrecto");
+      return;
+    }
+
+    console.log("✅ Estado actualizado a 'entregado' correctamente");
     setEstado("entregado");
   };
 
