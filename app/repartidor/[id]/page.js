@@ -32,7 +32,9 @@ export default async function PaginaRepartidor({ params }) {
     cliente: pedido.cliente,
     direccionCliente: pedido.direccion,
     telefono: pedido.telefono_cliente,
-    productos: typeof pedido.productos === 'string' ? JSON.parse(pedido.productos) : (pedido.productos || []),
+    productos: Array.isArray(pedido.productos)
+      ? pedido.productos
+      : [String(pedido.productos || '')],
     total: pedido.total,
     sucursal: { lat: pedido.lat_sucursal, lng: pedido.lng_sucursal },
     destino: { lat: pedido.lat_destino, lng: pedido.lng_destino },
