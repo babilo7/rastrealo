@@ -2,26 +2,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-const WA_TOKEN = "EAARc3iPFEecBQ1BZCw5L5fyZAMzizGuvmRkIGLkenZBfClfWWEhutZAIv31T8RtDTktri0ZCKuawbOJcDJrvXAxCZB86lAZAEX7A24J83oZBwOpVZCNKdW2dkZAj890AfhToM0Ek7tJZCDDrx1yiRXLSqhwKQzDhCPR01SrZBW2e4WyS163Jk1qpf2HJhC7cZC8Occl5E2rmCjrFX4CR59nmwZCP4nAiXm4iETbZBzHHGIapwLh";
-const WA_PHONE_ID = "1062390730283477";
-const DUENO_TEL = "529931776316";
-
-async function enviarWhatsApp(telefono, mensaje) {
-  await fetch(`https://graph.facebook.com/v25.0/${WA_PHONE_ID}/messages`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${WA_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: telefono,
-      type: "text",
-      text: { body: mensaje },
-    }),
-  });
-}
-
 export default function VistaRepartidor({ pedido, id }) {
   const [estado, setEstado] = useState("pendiente");
   const [tiempo, setTiempo] = useState(0);
@@ -147,20 +127,16 @@ export default function VistaRepartidor({ pedido, id }) {
       return;
     }
 
-    // ✅ Notificación al cliente
-    const telefonoCliente = pedido.telefono?.replace(/\D/g, "");
-    if (telefonoCliente) {
-      await enviarWhatsApp(
-        telefonoCliente,
-        `¡Tu pedido fue entregado! Gracias por tu compra 🎉 — Barbacoa Monroy`
-      );
-    }
-
-    // ✅ Notificación al dueño
-    await enviarWhatsApp(
-      DUENO_TEL,
-      `✅ Pedido #${id} entregado por ${repartidor.nombre} a ${pedido.cliente}`
-    );
+    await fetch("/api/notificar-entrega", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        telefonoCliente: pedido.telefono,
+        cliente: pedido.cliente,
+        repartidor: repartidor.nombre,
+        pedidoId: id,
+      }),
+    });
 
     setEstado("entregado");
   };
