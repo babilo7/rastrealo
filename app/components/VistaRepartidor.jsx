@@ -70,21 +70,56 @@ export default function VistaRepartidor({ pedido, id }) {
       }
     }
 
+    // ✅ Registrar Service Worker
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+
+        reg.active?.postMessage({
+          type: 'START_GPS',
+          pedidoId: id,
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        });
+
+        console.log('Service Worker registrado');
+      } catch (err) {
+        console.log('SW error:', err);
+      }
+    }
+
+    // ✅ watchPosition manda coords al Service Worker
     navigator.geolocation.watchPosition(
       async (pos) => {
-        await supabase.from("pedidos").update({
-          lat_actual: pos.coords.latitude,
-          lng_actual: pos.coords.longitude,
-        }).eq("pedido_id", id);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        // Intentar via Service Worker primero
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'UPDATE_LOCATION',
+            pedidoId: id,
+            lat,
+            lng,
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+            supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          });
+        } else {
+          // Fallback directo si SW no está listo
+          await supabase.from("pedidos").update({
+            lat_actual: lat,
+            lng_actual: lng,
+          }).eq("pedido_id", id);
+        }
       },
       (err) => console.log("GPS error:", err),
       { enableHighAccuracy: true }
     );
   };
 
-  // ✅ MODIFICADO — logs de diagnóstico
   const marcarEntregado = async () => {
-    console.log("🟡 Intentando marcar como entregado — pedido_id:", id);
+    console.log("Intentando marcar como entregado — pedido_id:", id);
 
     const { data, error } = await supabase
       .from("pedidos")
@@ -100,11 +135,11 @@ export default function VistaRepartidor({ pedido, id }) {
     }
 
     if (!data || data.length === 0) {
-      alert("⚠️ UPDATE llegó a Supabase pero no devolvió filas — posible problema de RLS o pedido_id incorrecto");
+      alert("UPDATE llegó pero no devolvió filas — revisa RLS o el pedido_id");
       return;
     }
 
-    console.log("✅ Estado actualizado a 'entregado' correctamente");
+    console.log("Estado actualizado a entregado correctamente");
     setEstado("entregado");
   };
 
