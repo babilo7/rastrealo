@@ -123,25 +123,27 @@ export default function VistaRepartidor({ pedido, id }) {
     }
 
     if (!data || data.length === 0) {
-      alert("UPDATE llegó pero no devolvió filas — revisa RLS o el pedido_id");
+      alert("UPDATE llegó pero no devolvió filas");
       return;
     }
 
-    await fetch("/api/notificar-entrega", {
+    // Notificar a n8n para que mande los WhatsApp
+    await fetch("https://automatizaai.lat/webhook/notificar-entrega", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        telefonoCliente: pedido.telefono,
-        cliente: pedido.cliente,
-        repartidor: repartidor.nombre,
         pedidoId: id,
+        cliente: pedido.cliente,
+        telefono_cliente: "52" + pedido.telefono,
+        repartidor: repartidor.nombre,
+        direccion: pedido.direccionCliente,
+        total: pedido.total,
       }),
     });
 
     setEstado("entregado");
   };
 
-  // --- PANTALLA DE IDENTIFICACIÓN ---
   if (!repartidor) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
@@ -184,7 +186,6 @@ export default function VistaRepartidor({ pedido, id }) {
     );
   }
 
-  // --- PANTALLA DEL PEDIDO ---
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md mb-6">
