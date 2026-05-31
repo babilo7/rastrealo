@@ -26,7 +26,6 @@ export default async function PaginaCliente({ params }) {
     );
   }
 
-  // Convertir estructura plana de Supabase al formato que espera MapaCliente
   const pedidoFormateado = {
     id: pedido.pedido_id,
     cliente: pedido.cliente,
@@ -46,10 +45,19 @@ export default async function PaginaCliente({ params }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-orange-500 text-white p-4">
-        <h1 className="font-bold text-lg">Tu pedido va en camino 🛵</h1>
-        <p className="text-orange-100 text-sm">Pedido #{id}</p>
+    <div className="min-h-screen bg-[#FDF6E3] flex flex-col">
+      <header className="text-white p-4" style={{ backgroundColor: "#E8391A" }}>
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo-velerito.jpg"
+            alt="Velerito Choco"
+            className="h-10 w-10 rounded-full object-cover"
+          />
+          <div>
+            <h1 className="font-bold text-lg">Tu pedido va en camino ⛵</h1>
+            <p className="text-orange-100 text-sm">Pedido #{id}</p>
+          </div>
+        </div>
       </header>
       <div className="flex-1 p-4">
         <div className="w-full h-96 rounded-2xl overflow-hidden shadow-lg">
